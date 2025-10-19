@@ -1,622 +1,668 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>GRID GALAXY</title>
-<style>
-  :root{
-    --grad: linear-gradient(90deg,#ff2d55 0%,#b14cff 40%,#007aff 100%);
-    --glowA: rgba(255,45,85,0.55);
-    --glowB: rgba(0,122,255,0.45);
-    --panel: rgba(20,20,26,0.9);
-    --line: rgba(255,255,255,0.12);
-  }
-  /* Sayfa iskeleti */
-  html,body{height:100%;margin:0;background:#000;color:#fff;overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-  #stage{position:fixed;inset:0}
-  canvas{display:block;width:100%;height:100%;cursor:grab}
-  canvas:active{cursor:grabbing}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SENTI WORLD – Grid Galaxy</title>
 
-  /* Üst başlık */
-  .top-title{
-    position:fixed;left:50%;top:10px;transform:translateX(-50%);
-    font-weight:800;letter-spacing:.3em;text-transform:uppercase;
-    font-size:clamp(16px,2vw,24px);
-    color:#e6e6e6;pointer-events:none;user-select:none;z-index:15
-  }
+  <!-- Tailwind (hızlı stil için) -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-  /* Sağ üst "Leave Message" */
-  .top-right{
-    position:fixed;right:16px;top:10px;display:flex;gap:10px;z-index:15
-  }
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  /* Sol üst profil kartı */
-  .profile-card{
-    position:fixed;left:16px;top:16px;display:none;align-items:center;gap:10px;
-    padding:10px 12px;border:1px solid var(--line);border-radius:14px;
-    background:linear-gradient(180deg, rgba(20,20,26,.95),rgba(8,8,12,.85));
-    box-shadow:0 0 18px var(--glowA),0 0 22px var(--glowB),inset 0 0 0 1px rgba(255,255,255,.06);
-    z-index:15
-  }
-  .profile-card img{width:36px;height:36px;border-radius:999px;display:block}
-  .profile-card .uname{font-weight:700;opacity:.95}
+  <style>
+    :root{
+      --neon: linear-gradient(90deg,#7c3aed,#db2777,#f59e0b,#22d3ee);
+      --line: rgba(255,255,255,0.14);
+      --panel: rgba(10,12,18,0.9);
+      --ticker:#94a3b8;
+    }
 
-  /* Alt orta Export */
-  .bottom-center{
-    position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:15
-  }
+    /* Sayfa arka planı ve genel davranış */
+    html, body { height:100%; margin:0; overflow:hidden; }
+    body { background-image: linear-gradient(to bottom right, #0f172a, #020617, #000000); }
 
-  /* Alt sağ imza (linklendi) */
-  .devmark{
-    position:fixed;right:14px;bottom:12px;font-size:12px;opacity:.9;user-select:none;z-index:10;
-    text-decoration:none;color:#fff;
-  }
-  .grad-text{
-    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent
-  }
-  .neon-text{
-    text-shadow:0 0 10px var(--glowA),0 0 18px var(--glowB),0 0 2px rgba(255,255,255,.6)
-  }
+    /* Üst bar öğeleri */
+    .glass {
+      background: linear-gradient(180deg, rgba(16,18,24,.9), rgba(8,10,14,.85));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 0 24px rgba(124,58,237,.2), 0 0 28px rgba(34,211,238,.15), inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .neon-text {
+      background: var(--neon);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 16px rgba(124,58,237,.25), 0 0 20px rgba(34,211,238,.2);
+      letter-spacing:.15em;
+    }
+    .neon-border { position: relative; border-radius: 16px; }
+    .neon-border::before{
+      content:""; position:absolute; inset:-1px; border-radius:inherit; padding:2px;
+      background:var(--neon); -webkit-mask:
+        linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      pointer-events:none;
+    }
 
-  /* Butonlar */
-  .btn{
-    -webkit-tap-highlight-color:transparent;
-    border-radius:14px;padding:10px 14px;font-weight:700;border:1px solid var(--line);
-    background:#0b0b0f;color:#fff;letter-spacing:.02em;
-    transition:box-shadow .2s,transform .15s,background .2s,border-color .2s,opacity .2s;
-  }
-  .btn:hover{transform:translateY(-1px)}
-  .btn.neon{
-    background:var(--grad);border-color:transparent;
-    box-shadow:0 0 0 rgba(0,0,0,0);
-  }
-  .btn.neon:hover{
-    box-shadow:0 0 24px var(--glowA),0 0 30px var(--glowB);
-  }
-  .btn.faint{
-    background:transparent;color:#fff;opacity:.55;border-color:rgba(255,255,255,.25);
-    box-shadow:0 0 10px rgba(255,255,255,.05);
-  }
-  .btn.faint:hover{
-    opacity:1;background:var(--grad);border-color:transparent;
-    box-shadow:0 0 24px var(--glowA),0 0 30px var(--glowB);
-  }
+    /* Logo (sol üst) sadece neon border ile çerçeve */
+    .logo-wrap { width:56px; height:56px; display:grid; place-items:center; }
+    .logo-wrap img { width:42px; height:42px; object-fit:contain; }
 
-  /* Modallar */
-  .overlay{
-    position:fixed;inset:0;background:rgba(0,0,0,.55);
-    backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:30
-  }
-  .modal{
-    width:min(92vw,520px);background:var(--panel);border:1px solid var(--line);
-    border-radius:18px;box-shadow:0 0 24px var(--glowA),0 0 28px var(--glowB),inset 0 0 0 1px rgba(255,255,255,.04);
-    padding:18px 18px 16px;position:relative;
-    box-sizing:border-box; /* input taşmasını engelle */
-  }
-  .modal h2{
-    margin:0 0 12px 0;font-weight:900;font-size:clamp(18px,2.2vw,26px);
-    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
-    text-shadow:0 0 16px var(--glowA),0 0 20px var(--glowB)
-  }
-  .modal .sub{
-    margin:4px 0 8px 0;font-size:12px;color:#d6d6d6;opacity:.9
-  }
-  .modal .x{
-    position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:10px;
-    display:grid;place-items:center;border:1px solid var(--line);background:#08080c99;cursor:pointer
-  }
-  .modal .x:hover{box-shadow:0 0 20px var(--glowB);background:#0b0b13}
+    /* Profil kartı (sağ üst) */
+    .profile-card { padding:8px 12px; display:flex; gap:10px; align-items:center; }
+    .profile-card img { width:36px; height:36px; border-radius:999px; display:block; }
 
-  .input{
-    width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.22);
-    background:#0c0c12;color:#fff;padding:12px 14px;font-size:14px;outline:none;
-    box-sizing:border-box; /* padding genişliği aşmasın */
-  }
-  .input.sm{ padding:9px 12px; font-size:13px; }
-  /* POP-UP İÇİNDE ve KÜÇÜK: */
-  .modal .input{ width:min(92%,420px); display:block; margin:0 auto; }
-  .modal .input.sm{ width:min(92%,360px); }
+    /* Başlık (orta üst) */
+    .title { font-weight:900; font-size: clamp(16px, 2.4vw, 28px); }
 
-  .input:focus{border-color:#5aa2ff;box-shadow:0 0 14px rgba(90,162,255,.35)}
+    /* Pop-up (overlay + modal) – Fast Senti Fingers hissi */
+    .overlay {
+      position: fixed; inset: 0; display:none; align-items:center; justify-content:center;
+      background: rgba(0,0,0,.55); backdrop-filter: blur(8px); z-index: 50;
+    }
+    .modal {
+      width:min(92vw,520px); background:var(--panel); border:1px solid var(--line);
+      border-radius:18px; padding:18px; box-shadow:0 0 24px rgba(124,58,237,.25), 0 0 28px rgba(34,211,238,.2), inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .modal h2 {
+      margin:4px 0 12px 0; font-weight:900; font-size: clamp(18px, 2.2vw, 26px);
+      background:var(--neon); -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-align:center; text-shadow:0 0 16px rgba(124,58,237,.25), 0 0 20px rgba(34,211,238,.2);
+    }
+    .modal .sub { font-size:12px; color:#d6d6d6; opacity:.9; text-align:center; margin-top:-2px; margin-bottom:8px; }
+    .modal .x { position:absolute; right:12px; top:12px; width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid var(--line); background:#0b0d14; cursor:pointer; }
+    .modal .x:hover{ box-shadow:0 0 18px rgba(34,211,238,.35); }
 
-  .row{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:14px}
+    .input {
+      width:min(92%,420px); display:block; margin:0 auto;
+      border-radius:12px; border:1px solid rgba(255,255,255,.22);
+      background:#0c0f16; color:#fff; padding:12px 14px; font-size:14px; outline:none;
+    }
+    .input:focus { border-color:#5aa2ff; box-shadow:0 0 14px rgba(90,162,255,.35); }
 
-  /* Export içi küçük canvas */
-  #exportCanvas{width:360px;height:360px;border-radius:16px;border:1px solid var(--line);display:block;margin:8px auto 0 auto;background:#000}
+    .btn {
+      -webkit-tap-highlight-color:transparent;
+      border-radius:14px; padding:10px 14px; font-weight:800; letter-spacing:.02em;
+      border:1px solid var(--line); color:#fff; background:#0b0d14;
+      transition:box-shadow .2s, transform .15s, background .2s, border-color .2s, opacity .2s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn.neon { background:var(--neon); border-color:transparent; box-shadow:0 0 0 rgba(0,0,0,0); }
+    .btn.neon:hover { box-shadow:0 0 24px rgba(124,58,237,.45), 0 0 28px rgba(34,211,238,.4); }
+    .btn.faint { background:transparent; color:#fff; opacity:.6; }
+    .btn.faint:hover { opacity:1; background:var(--neon); border-color:transparent; box-shadow:0 0 24px rgba(124,58,237,.45), 0 0 28px rgba(34,211,238,.4); }
 
-  /* Yardım ipucu */
-  .hint{position:fixed;left:16px;top:48px;font-size:12px;color:#cfcfcf;opacity:.8;user-select:none;z-index:10}
-</style>
+    /* Galaxy Canvas */
+    #stage{ position:fixed; inset:84px 0 64px 0; } /* üstte header, altta footer boşluk */
+    canvas{ display:block; width:100%; height:100%; cursor:grab; }
+    canvas:active{ cursor:grabbing; }
+
+    /* Baloncuk (avatar tıklandığında) */
+    .msg-bubble {
+      position: fixed; display:none; max-width:min(70vw, 360px);
+      background:linear-gradient(180deg, rgba(16,18,24,.96), rgba(10,12,18,.9));
+      border:1px solid var(--line); border-radius:14px; padding:10px 12px; color:#e8e8e8;
+      box-shadow:0 0 24px rgba(124,58,237,.25), 0 0 28px rgba(34,211,238,.2), inset 0 0 0 1px rgba(255,255,255,.04);
+      z-index:40;
+    }
+    .msg-bubble.neon-border::before{ border-radius:14px; }
+    .msg-bubble .uname{ font-weight:800; opacity:.95; }
+
+    /* Footer */
+    footer { position:fixed; left:0; right:0; bottom:8px; padding:0 12px; }
+  </style>
 </head>
-<body>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-black">
+
+  <!-- Üst bar -->
+  <header class="fixed top-3 inset-x-0 px-3 z-40">
+    <div class="max-w-[1400px] mx-auto grid grid-cols-3 items-center">
+      <!-- Sol: Logo (yalnız neon border) -->
+      <div class="flex items-center gap-3">
+        <div class="logo-wrap neon-border">
+          <img src="https://i.imgur.com/ZEwLVrz.png" alt="Logo" />
+        </div>
+      </div>
+
+      <!-- Orta: Başlık -->
+      <div class="flex items-center justify-center">
+        <div class="title neon-text tracking-widest">SENTI WORLD</div>
+      </div>
+
+      <!-- Sağ: Profil kartı -->
+      <div class="flex justify-end">
+        <div id="profileCard" class="profile-card glass" style="display:none">
+          <img id="avatarSmall" alt="avatar"/>
+          <div>
+            <div class="text-[11px] opacity-80">Senti Profile</div>
+            <div id="uname" class="text-sm font-extrabold">@user</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
   <!-- Sahne -->
   <div id="stage"><canvas id="galaxy"></canvas></div>
 
-  <!-- Üst başlık -->
-  <div class="top-title">GRID GALAXY</div>
-
-  <!-- Sol üst profil kartı -->
-  <div id="profileCard" class="profile-card">
-    <img id="avatarSmall" alt="avatar"/>
-    <div class="uname" id="uname">@user</div>
+  <!-- Baloncuk -->
+  <div id="msgBubble" class="msg-bubble neon-border">
+    <div id="bubbleUser" class="uname text-xs"></div>
+    <div id="bubbleText" class="text-[13px] leading-snug mt-1"></div>
   </div>
 
-  <!-- Sağ üst buton -->
-  <div class="top-right">
-    <button id="btnMessage" class="btn neon" style="display:none">Leave Message</button>
-  </div>
-
-  <!-- Alt orta Export -->
-  <div class="bottom-center">
-    <button id="btnExport" class="btn faint" style="display:none">Export GRID</button>
-  </div>
-
-  <!-- Alt sağ imza (link eklendi) -->
-  <a class="devmark" href="https://x.com/cotantanax" target="_blank" rel="noopener">
-    Developed by <strong class="grad-text neon-text">Elliottyu</strong>
-  </a>
-
-  <!-- Giriş Modal (Kapatma X YOK) -->
+  <!-- Giriş Modal -->
   <div id="entryOverlay" class="overlay" style="display:flex">
-    <div class="modal" style="text-align:center">
-      <h2 class="neon-text" style="margin-top:6px">Welcome to the GRID</h2>
-      <div style="font-size:13px;opacity:.9;margin-bottom:6px">Your X Username</div>
-      <input id="inpUser" class="input sm" placeholder="e.g. elliottyu" autocomplete="off"/>
-      <div class="row" style="justify-content:center;margin-top:14px">
+    <div class="modal relative text-center neon-border">
+      <h2>Welcome to the GRID</h2>
+      <div class="sub">Your X Username</div>
+      <input id="inpUser" class="input" placeholder="e.g. elliottyu" autocomplete="off" />
+      <div class="mt-4">
         <button id="btnStart" class="btn neon">Start</button>
       </div>
     </div>
   </div>
 
- <!-- Leave Message Modal -->
-<div id="msgOverlay" class="overlay">
-  <div class="modal">
-    <div class="x" id="msgClose" title="Close">✕</div>
-
-    <h2 style="text-align:center; width:100%;">Your Grid Message</h2>
-    <div class="sub" style="text-align:center; width:100%;">leave a message to print on the GRID galaxy</div>
-
-    <input id="inpMsg" class="input sm" placeholder="gSenti" maxlength="25"/>
-    <div class="row">
-      <button id="btnSend" class="btn neon">Send</button>
-    </div>
-  </div>
-</div>
-
-  <!-- Profil Modal -->
-  <div id="profOverlay" class="overlay">
-    <div class="modal" style="text-align:center">
-      <div class="x" id="profClose" title="Close">✕</div>
-      <h2>GRID Profile</h2>
-      <img id="profAvatar" alt="avatar" style="width:88px;height:88px;border-radius:999px;display:block;margin:4px auto 8px auto;border:1px solid var(--line);box-shadow:0 0 24px var(--glowA),0 0 20px var(--glowB)"/>
-      <div id="profMsg" style="font-size:14px;opacity:.95;margin:6px 0 12px 0"></div>
-      <button id="btnToggle" class="btn neon">Activate mini-grid</button>
-    </div>
-  </div>
-
-  <!-- Export Modal -->
-  <div id="expOverlay" class="overlay">
-    <div class="modal" style="text-align:center">
-      <div class="x" id="expClose" title="Close">✕</div>
-      <h2 id="expTitle">@user's GRID Galaxy</h2>
-      <canvas id="exportCanvas" width="720" height="720"></canvas>
-      <div id="expMsg" class="sub" style="margin:10px 0 2px 0; font-size:14px; opacity:.95;"></div>
-      <div class="row" style="justify-content:center">
-        <button id="btnBack" class="btn neon">Back to the GRID</button>
+  <!-- Mesaj Bırak Modalı -->
+  <div id="msgOverlay" class="overlay">
+    <div class="modal relative neon-border">
+      <div class="x" id="msgClose" title="Kapat">✕</div>
+      <h2>Leave Your Senti Message</h2>
+      <div class="sub">Seçtiğin daireye mesajını bırak</div>
+      <input id="inpMsg" class="input" placeholder="gSenti" maxlength="120" />
+      <div class="mt-3 text-center">
+        <button id="btnSubmit" class="btn neon">Submit</button>
       </div>
     </div>
   </div>
 
+  <!-- Footer -->
+  <footer class="grid grid-cols-3 items-center">
+    <div></div>
+    <div class="text-center text-[13px] font-light" style="color:var(--ticker)">Ticker is $SENT</div>
+    <div class="flex justify-end pr-1">
+      <a href="https://x.com/cotantanax" target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-2 rounded-xl px-3 py-2 border border-white/10 bg-white/5">
+        <span class="text-xs text-slate-400">Developed by</span>
+        <span class="font-bold px-2 py-1 rounded-md text-black" style="background:var(--neon);">Elliottyu</span>
+      </a>
+    </div>
+  </footer>
+
 <script>
-/* ——— Mevcut JS’i değiştirmedim; tamamı aynı ——— */
-(() => {
-  // ---------- Canvas / Galaxy ----------
-  const canvas = document.getElementById('galaxy');
-  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
-  let DPR = 1;
+/* =========================
+   🔌 Supabase Ayarları
+   ========================= */
+const SUPABASE_URL = "https://YOUR-PROJECT-REF.supabase.co";  // ← kendi projen ile değiştir
+const SUPABASE_ANON_KEY = "YOUR-ANON-KEY";                    // ← kendi ANON KEY’in ile değiştir
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  function resize() {
-    DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-    canvas.width = Math.floor(innerWidth * DPR);
-    canvas.height = Math.floor(innerHeight * DPR);
-    canvas.style.width = innerWidth + 'px';
-    canvas.style.height = innerHeight + 'px';
-    layout();
-  }
-  window.addEventListener('resize', resize);
-
-  // Kamera
-  const camera = { x: innerWidth/2, y: innerHeight/2, s: 1 };
-const ZOOM = { min: 0.25, max: 8, step: 1.001 };
-  function applyTransform(){ ctx.setTransform(camera.s * DPR,0,0,camera.s * DPR,camera.x * DPR,camera.y * DPR); }
-  function screenToWorld(sx,sy){ return {x:(sx - camera.x)/camera.s, y:(sy - camera.y)/camera.s}; }
-
-  // Model
-  const palette = ["#ffd166","#f8a14a","#ef476f","#ff8ce5","#cdb4ff","#9bf6ff"];
-  let rings = [];
-  let outerR = 420, innerR = 120;
-
-  function layout(){
-    const w = canvas.width / DPR, h = canvas.height / DPR;
-    outerR = Math.min(w,h) * 0.42;
-    innerR = Math.min(w,h) * 0.18;
-    camera.x = w/2; camera.y = h/2;
-
-    const countRings = 7;
-    rings = [];
-    const step = (outerR - innerR) / (countRings - 1);
-    for (let i=0;i<countRings;i++){
-      const r = innerR + step * i;
-      const count = Math.round(18 + i*7 + (i*i)*0.6);
-      const size  = 1.6 + i*0.6;
-      const speed = (i%2?-1:1)*(0.007 - i*0.0006);
-      rings.push({r,count,size,speed,baseAngle:Math.random()*Math.PI*2});
-    }
-    positionUserNode(); // kullanıcı düğümü konumu
-    buildNodeSprites();
-  }
-
-  // Etkileşim
-  let dragging=false,lastX=0,lastY=0,isClick=false,downAt=0;
-  canvas.addEventListener('pointerdown',e=>{
-    dragging=true; lastX=e.clientX; lastY=e.clientY; isClick=true; downAt=performance.now(); canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener('pointermove',e=>{
-    if(!dragging) return;
-    const dx=e.clientX-lastX, dy=e.clientY-lastY;
-    camera.x += dx; camera.y += dy;
-    if(Math.hypot(dx,dy)>5) isClick=false;
-    lastX=e.clientX; lastY=e.clientY;
-  });
-  canvas.addEventListener('pointerup',e=>{
-    dragging=false;
-    if(isClick && performance.now()-downAt<250) checkUserNodeHit(e.clientX,e.clientY);
-  });
-  canvas.addEventListener('pointercancel',()=>dragging=false);
-  canvas.addEventListener('wheel',e=>{
-    e.preventDefault();
-    const {clientX:sx,clientY:sy}=e;
-    const world = screenToWorld(sx,sy);
-    const factor = Math.pow(ZOOM.step, -e.deltaY);
-    const next = Math.max(ZOOM.min, Math.min(ZOOM.max, camera.s*factor));
-    camera.s = next;
-    camera.x = sx - world.x*camera.s;
-    camera.y = sy - world.y*camera.s;
-  },{passive:false});
-
-  
-function isOnScreen(x, y, margin=24){
-  const sx = x * camera.s + camera.x;
-  const sy = y * camera.s + camera.y;
-  return sx > -margin && sy > -margin && sx < canvas.width / DPR + margin && sy < canvas.height / DPR + margin;
+/* =========================
+   🖼️ Avatar (Avatario → fallback)
+   ========================= */
+function avatarUrlFor(username){
+  const u = encodeURIComponent(username);
+  // Eğer Avatario için sabit bir endpoint’in varsa buraya koy:
+  // return `https://avatario.example/x/${u}`;
+  // Geniş uyumluluk için unavatar (X/Twitter)
+  return `https://unavatar.io/x/${u}`;
 }
-function drawBackgroundGlow(){
-    applyTransform();
-    const g = ctx.createRadialGradient(0,0,innerR*0.15,0,0,outerR*1.05);
-    g.addColorStop(0,"rgba(255,255,255,.35)");
-    g.addColorStop(0.25,"rgba(200,200,200,.10)");
-    g.addColorStop(1,"rgba(0,0,0,0)");
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,outerR*1.1,0,Math.PI*2); ctx.fill();
-  }
-  function drawLinks(time){
-    applyTransform();
-    ctx.save();
-    ctx.lineWidth = Math.max(0.7/camera.s, 0.25/camera.s);
-    ctx.strokeStyle = "rgba(200,200,200,0.18)";
-    for(let i=0;i<rings.length;i++){
-      const A=rings[i], B=rings[(i+1)%rings.length];
-      const aStep=(Math.PI*2)/A.count, bStep=(Math.PI*2)/B.count;
-      const aRot=A.baseAngle + A.speed*time, bRot=B.baseAngle + B.speed*time;
-      for(let j=0;j<A.count;j++){
-        const a=aRot + j*aStep;
-        const ax=Math.cos(a)*A.r, ay=Math.sin(a)*A.r; if(!isOnScreen(ax,ay,60)) continue;
-        ctx.beginPath(); ctx.moveTo(ax,ay);
-        const a2=aRot + ((j+3)%A.count)*aStep;
-        const ax2=Math.cos(a2)*A.r, ay2=Math.sin(a2)*A.r;
-        const qx=(ax+ax2)*0.5*0.96, qy=(ay+ay2)*0.5*0.96;
-        ctx.quadraticCurveTo(qx,qy,ax2,ay2); ctx.stroke();
-        const k=Math.round(j*(B.count/A.count));
-        const b=bRot + k*bStep;
-        const bx=Math.cos(b)*B.r, by=Math.sin(b)*B.r;
-        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.quadraticCurveTo(0,0,bx,by); ctx.stroke();
-      }
-    }
-    ctx.restore();
-  }
-  
-// ----- Sprite cache for glowing nodes (Chrome-friendly, no per-frame shadowBlur) -----
-let nodeSprites = null; // Array< Map(sizeStr -> Canvas) > per palette color
+function loadAvatarImage(username){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = avatarUrlFor(username);
+    img.onload = ()=>resolve(img);
+    img.onerror = ()=>{
+      // Yedek: identicon
+      const fall = new Image(); fall.crossOrigin='anonymous';
+      fall.src = `https://api.dicebear.com/7.x/identicon/png?size=256&seed=${encodeURIComponent(username)}`;
+      fall.onload = ()=>resolve(fall);
+      fall.onerror = ()=>resolve(null);
+    };
+  });
+}
 
+/* =========================
+   🧩 UI Referansları
+   ========================= */
+const entryOverlay = document.getElementById('entryOverlay');
+const inpUser      = document.getElementById('inpUser');
+const btnStart     = document.getElementById('btnStart');
+
+const profileCard  = document.getElementById('profileCard');
+const avatarSmall  = document.getElementById('avatarSmall');
+const unameEl      = document.getElementById('uname');
+
+const msgOverlay   = document.getElementById('msgOverlay');
+const msgClose     = document.getElementById('msgClose');
+const inpMsg       = document.getElementById('inpMsg');
+const btnSubmit    = document.getElementById('btnSubmit');
+
+const msgBubble    = document.getElementById('msgBubble');
+const bubbleUser   = document.getElementById('bubbleUser');
+const bubbleText   = document.getElementById('bubbleText');
+
+/* =========================
+   🪐 Galaxy (küçültülmüş)
+   ========================= */
+const canvas = document.getElementById('galaxy');
+const ctx    = canvas.getContext('2d', { alpha: true, desynchronized: true });
+let DPR = 1;
+
+let camera = { x: innerWidth/2, y: innerHeight/2, s: 1 };
+const ZOOM = { min: 0.4, max: 6, step: 1.001 };
+
+function resize(){
+  DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  canvas.width  = Math.floor((innerWidth)  * DPR);
+  canvas.height = Math.floor((innerHeight - 84 - 64) * DPR); // header & footer boşluğu
+  canvas.style.width  = innerWidth + 'px';
+  canvas.style.height = (innerHeight - 84 - 64) + 'px';
+  layout();
+}
+window.addEventListener('resize', resize);
+
+function applyTransform(){ ctx.setTransform(camera.s * DPR,0,0,camera.s * DPR,camera.x * DPR,camera.y * DPR); }
+function screenToWorld(sx,sy){ const rect = canvas.getBoundingClientRect(); const x = sx - rect.left; const y = sy - rect.top; return {x:(x - camera.x)/camera.s, y:(y - camera.y)/camera.s}; }
+function worldToScreen(wx,wy){ const sx = wx * camera.s + camera.x; const sy = wy * camera.s + camera.y; return {x:sx, y:sy}; }
+
+const palette = ["#ffd166","#f8a14a","#ef476f","#ff8ce5","#cdb4ff","#9bf6ff"];
+let rings = [];
+let outerR = 320, innerR = 90; // küçültülmüş
+
+function layout(){
+  const w = canvas.width / DPR, h = canvas.height / DPR;
+  outerR = Math.min(w,h) * 0.38;
+  innerR = Math.min(w,h) * 0.16;
+  camera.x = w/2; camera.y = h/2;
+
+  rings = [];
+  const countRings = 6;         // biraz daha az halka
+  const step = (outerR - innerR) / (countRings - 1);
+  for(let i=0;i<countRings;i++){
+    const r = innerR + step * i;
+    const count = Math.round(14 + i*6 + (i*i)*0.45);
+    const size  = 1.3 + i*0.55;
+    const speed = (i%2?-1:1)*(0.0065 - i*0.0005);
+    rings.push({r,count,size,speed,baseAngle:Math.random()*Math.PI*2});
+  }
+  buildNodeSprites();
+}
+
+let dragging=false,lastX=0,lastY=0,isClick=false,downAt=0;
+canvas.addEventListener('pointerdown',e=>{
+  dragging=true; lastX=e.clientX; lastY=e.clientY; isClick=true; downAt=performance.now(); canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  const dx=e.clientX-lastX, dy=e.clientY-lastY;
+  camera.x += dx; camera.y += dy;
+  if(Math.hypot(dx,dy)>5) isClick=false;
+  lastX=e.clientX; lastY=e.clientY;
+});
+canvas.addEventListener('pointerup',e=>{
+  dragging=false;
+  if(isClick && performance.now()-downAt<250) onCanvasClick(e.clientX, e.clientY);
+});
+canvas.addEventListener('pointercancel',()=>dragging=false);
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+  const world = screenToWorld(e.clientX, e.clientY);
+  const factor = Math.pow(ZOOM.step, -e.deltaY);
+  const next = Math.max(ZOOM.min, Math.min(ZOOM.max, camera.s*factor));
+  camera.s = next;
+  camera.x = sx - world.x*camera.s;
+  camera.y = sy - world.y*camera.s;
+},{passive:false});
+
+/* ==== Node çizimleri (sprite hızlandırma) ==== */
+let nodeSprites = null;
 function hexToRgba(hex, a){
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if(!m) return 'rgba(255,255,255,'+a+')';
   const r = parseInt(m[1],16), g = parseInt(m[2],16), b = parseInt(m[3],16);
-  return 'rgba('+r+','+g+','+b+','+a+')';
+  return `rgba(${r},${g},${b},${a})`;
 }
 function ensureSprite(ci, size){
   if(!nodeSprites) nodeSprites = new Array(palette.length).fill(null).map(()=>new Map());
-  const key = String(size);
-  const map = nodeSprites[ci];
+  const key = String(size), map = nodeSprites[ci];
   if(map.has(key)) return map.get(key);
-  const d = Math.ceil(size * 6); // ~3x radius each side for glow
+  const d = Math.ceil(size * 6);
   const cvs = (typeof OffscreenCanvas!=='undefined') ? new OffscreenCanvas(d,d) : document.createElement('canvas');
-  cvs.width = d; cvs.height = d;
+  cvs.width=d; cvs.height=d;
   const c = cvs.getContext('2d');
-  const cx = d/2, cy = d/2, r = size;
-  const col = palette[ci];
+  const cx=d/2, cy=d/2, r=size;
+  const col=palette[ci];
   const g = c.createRadialGradient(cx,cy,0, cx,cy, r*2.5);
   g.addColorStop(0, hexToRgba(col, 0.95));
   g.addColorStop(0.35, hexToRgba(col, 0.55));
   g.addColorStop(1, 'rgba(0,0,0,0)');
-  c.fillStyle = g; c.beginPath(); c.arc(cx,cy, r*2.5, 0, Math.PI*2); c.fill();
-  c.fillStyle = col; c.beginPath(); c.arc(cx,cy, r*0.9, 0, Math.PI*2); c.fill();
-  map.set(key, cvs);
-  return cvs;
+  c.fillStyle=g; c.beginPath(); c.arc(cx,cy,r*2.5,0,Math.PI*2); c.fill();
+  c.fillStyle=col; c.beginPath(); c.arc(cx,cy,r*0.9,0,Math.PI*2); c.fill();
+  map.set(key,cvs); return cvs;
 }
 function buildNodeSprites(){
-  // Prebuild sprites for sizes present in rings for first frame smoothness
   try{
     nodeSprites = new Array(palette.length).fill(null).map(()=>new Map());
     const sizes = []; for(const R of rings){ if(!sizes.includes(R.size)) sizes.push(R.size); }
     for(let ci=0; ci<palette.length; ci++){ for(const s of sizes){ ensureSprite(ci, s); } }
-  }catch(e){ /* ignore */ }
+  }catch(e){}
 }
 
+function drawBackground(){
+  applyTransform();
+  const g = ctx.createRadialGradient(0,0,innerR*0.18, 0,0,outerR*1.08);
+  g.addColorStop(0,"rgba(255,255,255,.35)");
+  g.addColorStop(0.25,"rgba(200,200,200,.10)");
+  g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,outerR*1.1,0,Math.PI*2); ctx.fill();
+}
+function drawLinks(time){
+  applyTransform();
+  ctx.save();
+  ctx.lineWidth = Math.max(0.7/camera.s, 0.25/camera.s);
+  ctx.strokeStyle = "rgba(200,200,200,0.18)";
+  for(let i=0;i<rings.length;i++){
+    const A=rings[i], B=rings[(i+1)%rings.length];
+    const aStep=(Math.PI*2)/A.count, bStep=(Math.PI*2)/B.count;
+    const aRot=A.baseAngle + A.speed*time, bRot=B.baseAngle + B.speed*time;
+    for(let j=0;j<A.count;j++){
+      const a=aRot + j*aStep;
+      const ax=Math.cos(a)*A.r, ay=Math.sin(a)*A.r;
+      ctx.beginPath(); ctx.moveTo(ax,ay);
+      const a2=aRot + ((j+3)%A.count)*aStep;
+      const ax2=Math.cos(a2)*A.r, ay2=Math.sin(a2)*A.r;
+      const qx=(ax+ax2)*0.5*0.96, qy=(ay+ay2)*0.5*0.96;
+      ctx.quadraticCurveTo(qx,qy,ax2,ay2); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
 function drawNodes(time){
-    applyTransform();
-    ctx.save(); ctx.globalCompositeOperation='lighter';
-    for(let i=0;i<rings.length;i++){
-      const R=rings[i], step=(Math.PI*2)/R.count, rot=R.baseAngle + R.speed*time;
-      for(let j=0;j<R.count;j++){
-        const a=rot + j*step, x=Math.cos(a)*R.r, y=Math.sin(a)*R.r;
-        const screenSize = R.size * camera.s; if(screenSize<0.35) continue;
-        if(!isOnScreen(x,y,30)) continue;
-        const ci = (j+i*3)%palette.length;
-        const spr = ensureSprite(ci, R.size);
-        const d = spr.width;
-        ctx.drawImage(spr, x - d/2, y - d/2, d, d);
-      }
+  applyTransform();
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<rings.length;i++){
+    const R=rings[i], step=(Math.PI*2)/R.count, rot=R.baseAngle + R.speed*time;
+    for(let j=0;j<R.count;j++){
+      const a=rot + j*step, x=Math.cos(a)*R.r, y=Math.sin(a)*R.r;
+      const ci = (j+i*3)%palette.length;
+      const spr = ensureSprite(ci, R.size);
+      const d = spr.width;
+      ctx.drawImage(spr, x - d/2, y - d/2, d, d);
     }
+  }
+  ctx.restore();
+}
+function drawCore(){
+  applyTransform();
+  const coreR = innerR*0.54;
+  const grad = ctx.createRadialGradient(0,0,coreR*0.25,0,0,coreR);
+  grad.addColorStop(0,"rgba(245,245,245,.95)");
+  grad.addColorStop(0.55,"rgba(120,120,120,.35)");
+  grad.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.save(); ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(0,0,coreR,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.font=`${Math.max(14, coreR*0.4)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+  ctx.shadowColor="rgba(255,255,255,.7)"; ctx.shadowBlur=Math.max(12/camera.s,4/camera.s);
+  ctx.fillText("GRID",0,0); ctx.restore();
+}
+
+/* =========================
+   🎯 Node seçimi ve mesaj süreci
+   ========================= */
+let currentUser = { username:"", avatarImg:null, avatarUrl:"" };
+let pendingNode = null; // {x,y} – mesaj yazılacak node
+let messageMarkers = []; // {id, username, message, x,y, avatarUrl}
+
+async function onCanvasClick(clientX, clientY){
+  // Avatar balonunu kapat
+  hideBubble();
+
+  const world = screenToWorld(clientX, clientY);
+  // En yakın halka/point tespiti (yakınsa kabul)
+  const hit = findNearestNode(world.x, world.y, 12 /* world px tolerans */);
+  if(hit){
+    pendingNode = { x: hit.x, y: hit.y };
+    // Pop-up aç
+    msgOverlay.style.display='flex';
+    inpMsg.value = "";
+    setTimeout(()=>inpMsg.focus(), 50);
+  }
+}
+
+function findNearestNode(wx, wy, tol=12){
+  let best=null, bestD=Infinity;
+  for(let i=0;i<rings.length;i++){
+    const R = rings[i], step=(Math.PI*2)/R.count;
+    for(let j=0;j<R.count;j++){
+      const a = j*step + R.baseAngle; // rotasyona bağlı gezse de world koordinatı yeter
+      const x = Math.cos(a)*R.r, y = Math.sin(a)*R.r;
+      const d = Math.hypot(wx-x, wy-y);
+      if(d < bestD){ bestD = d; best = {x,y}; }
+    }
+  }
+  return (bestD <= tol) ? best : null;
+}
+
+/* =========================
+   🗄️ Supabase CRUD & Realtime
+   ========================= */
+async function loadAllMessages(){
+  const { data, error } = await supabase
+    .from('grid_messages')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if(error){ console.warn('Load error:', error); return; }
+  messageMarkers = data.map(row => ({
+    id: row.id,
+    username: row.username,
+    message: row.message,
+    x: row.x, y: row.y,
+    avatarUrl: row.avatar_url
+  }));
+}
+
+function subscribeRealtime(){
+  supabase
+    .channel('public:grid_messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'grid_messages' }, payload => {
+      const row = payload.new;
+      messageMarkers.push({
+        id: row.id,
+        username: row.username,
+        message: row.message,
+        x: row.x, y: row.y,
+        avatarUrl: row.avatar_url
+      });
+    })
+    .subscribe();
+}
+
+async function saveMessageAtNode(text){
+  if(!pendingNode || !currentUser.username) return;
+  const row = {
+    username: currentUser.username,
+    message: text,
+    x: pendingNode.x,
+    y: pendingNode.y,
+    avatar_url: currentUser.avatarUrl
+  };
+  const { data, error } = await supabase.from('grid_messages').insert(row).select('*').single();
+  if(error){ alert('Save error: ' + error.message); return; }
+  // Lokal diziye eklemeye gerek yok, realtime da gelecek—ama anında göstermek için ekleyelim:
+  messageMarkers.push({
+    id: data.id, username: data.username, message: data.message,
+    x: data.x, y: data.y, avatarUrl: data.avatar_url
+  });
+}
+
+/* =========================
+   🧵 Avatar İşaretleyicileri + etkileşim
+   ========================= */
+function drawAvatarMarker(wx, wy, img, sizeWorld=18){
+  applyTransform();
+  const R = sizeWorld;
+  // Neon kontür
+  ctx.save();
+  ctx.shadowColor="rgba(255,255,255,.85)";
+  ctx.shadowBlur=Math.max(28/camera.s, 10/camera.s);
+  ctx.beginPath(); ctx.arc(wx, wy, R+1.2, 0, Math.PI*2);
+  ctx.strokeStyle="rgba(255,255,255,.35)"; ctx.lineWidth=Math.max(2/camera.s, 1/camera.s);
+  ctx.stroke(); ctx.restore();
+
+  // Avatar
+  if(img && img.complete){
+    ctx.save(); ctx.beginPath(); ctx.arc(wx,wy,R,0,Math.PI*2); ctx.clip();
+    ctx.drawImage(img, wx-R, wy-R, 2*R, 2*R);
     ctx.restore();
+  }else{
+    const g=ctx.createRadialGradient(wx,wy,R*0.2, wx,wy,R);
+    g.addColorStop(0,"#fff"); g.addColorStop(1,"#777");
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(wx,wy,R,0,Math.PI*2); ctx.fill();
   }
-  function drawCore(){
-    applyTransform();
-    const coreR = innerR*0.58;
-    const grad = ctx.createRadialGradient(0,0,coreR*0.25,0,0,coreR);
-    grad.addColorStop(0,"rgba(245,245,245,.95)");
-    grad.addColorStop(0.55,"rgba(120,120,120,.35)");
-    grad.addColorStop(1,"rgba(0,0,0,0)");
-    ctx.save(); ctx.beginPath(); ctx.fillStyle=grad;
-    ctx.shadowColor="rgba(255,255,255,.6)"; ctx.shadowBlur=Math.max(40/camera.s,12/camera.s);
-    ctx.arc(0,0,coreR,0,Math.PI*2); ctx.fill(); ctx.restore();
-    ctx.save(); ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.font=`${Math.max(14, coreR*0.42)}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
-    ctx.shadowColor="rgba(255,255,255,.75)"; ctx.shadowBlur=Math.max(12/camera.s,4/camera.s);
-    ctx.fillText("GRID",0,0); ctx.restore();
+}
+
+let hoverId=null, selectedId=null;
+
+canvas.addEventListener('click', (e)=>{
+  // Avatar üstüne tıklanmış mı?
+  const rect = canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const world = screenToWorld(e.clientX, e.clientY);
+  const hit = hitAvatar(world.x, world.y);
+  if(hit){
+    selectedId = hit.id;
+    showBubbleFor(hit);
+    e.stopPropagation();
+  }
+});
+
+function hitAvatar(wx, wy){
+  // Dünya koordinatında 22 world px yarıçap
+  for(let i=messageMarkers.length-1; i>=0; i--){
+    const m = messageMarkers[i];
+    const d = Math.hypot(wx - m.x, wy - m.y);
+    if(d <= 22) return m;
+  }
+  return null;
+}
+
+async function showBubbleFor(marker){
+  bubbleUser.textContent = '@' + marker.username;
+  bubbleText.textContent = marker.message || '(no message)';
+  // Pozisyonla
+  const p = worldToScreen(marker.x, marker.y);
+  // Balonu biraz sağ-üstte gösterelim
+  const bx = Math.min(innerWidth - 20, Math.max(20, p.x + 24));
+  const by = Math.min(innerHeight - 90, Math.max(84 + 12, p.y - 24));
+  msgBubble.style.left = bx + 'px';
+  msgBubble.style.top  = by + 'px';
+  msgBubble.style.display = 'block';
+}
+
+function hideBubble(){
+  selectedId = null;
+  msgBubble.style.display = 'none';
+}
+
+/* =========================
+   ⛓️ Çizim Döngüsü (+ bağlayıcı çizgi)
+   ========================= */
+function frame(now){
+  const t = now/1000;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  drawBackground();
+  drawLinks(t);
+  drawNodes(t);
+  drawCore();
+
+  // Mesaj işaretleyicileri
+  for(const m of messageMarkers){
+    // Resmi cachelemek için imageMap kullan
+    const img = getImageFor(m.avatarUrl, m.username);
+    drawAvatarMarker(m.x, m.y, img, 18);
   }
 
-  // ---------- Kullanıcı avatarı / düğümü ----------
-  let username='', messageText='';
-  let avatarImg=null;
-  const userNode = { enabled:false, active:false, x:0, y:0, R:26, ringR1:0, ringR2:0 };
-
-  function positionUserNode(){
-    // Galaksiden daha uzakta
-    const offset = outerR * 1.8;
-    userNode.x = offset; userNode.y = 0;
-    userNode.R = Math.max(22, innerR*0.32);
-    userNode.ringR1 = userNode.R + Math.max(16, userNode.R*0.55);
-    userNode.ringR2 = userNode.R + Math.max(36, userNode.R*1.0);
-  }
-  function drawUserNode(){
-    if(!userNode.enabled) return;
-    applyTransform();
-    const x=userNode.x, y=userNode.y, R=userNode.R;
-    // Glow çemberi
-    ctx.save();
-    ctx.shadowColor="rgba(255,255,255,.9)";
-    ctx.shadowBlur=Math.max(32/camera.s,12/camera.s);
-    ctx.beginPath(); ctx.arc(x,y,R+1.2,0,Math.PI*2); ctx.strokeStyle="rgba(255,255,255,.35)";
-    ctx.lineWidth=Math.max(2/camera.s,1/camera.s); ctx.stroke(); ctx.restore();
-
-    // Avatar
-    if(avatarImg && avatarImg.complete){
-      ctx.save(); ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.clip();
-      ctx.drawImage(avatarImg, x-R, y-R, 2*R, 2*R); ctx.restore();
-    }else{
-      const g=ctx.createRadialGradient(x,y,R*0.2,x,y,R);
-      g.addColorStop(0,"#fff"); g.addColorStop(1,"#777");
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.fill();
+  // Seçili baloncuk varsa bağlayıcı çizgi
+  if(selectedId){
+    const sel = messageMarkers.find(mm=>mm.id===selectedId);
+    if(sel && msgBubble.style.display !== 'none'){
+      const a = worldToScreen(sel.x, sel.y); // avatar merkezi (screen)
+      const bubbleRect = msgBubble.getBoundingClientRect();
+      const bx = bubbleRect.left + 12; // baloncuk sol-iç
+      const by = bubbleRect.top  + bubbleRect.height/2;
+      // Canvas koordinatları (canvas top=84px offset’li)
+      const rect = canvas.getBoundingClientRect();
+      const ax = a.x; const ay = a.y;
+      const bcx = bx - rect.left; const bcy = by - rect.top;
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.strokeStyle = "rgba(220,220,220,.75)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bcx, bcy); ctx.stroke();
     }
-
-    // Mini grid halkaları (aktifse)
-    if(userNode.active){
-      const small = Math.max(2.4, R*0.11);
-      ctx.save(); ctx.globalCompositeOperation='lighter';
-      for(const [ringR,count,phase] of [[userNode.ringR1,22,0.1],[userNode.ringR2,30,0.35]]){
-        for(let i=0;i<count;i++){
-          const a = (i/count)*Math.PI*2 + phase;
-          const nx = x + Math.cos(a)*ringR;
-          const ny = y + Math.sin(a)*ringR;
-          const ci = i % palette.length;
-          const spr = ensureSprite(ci, small);
-          const d = spr.width;
-          // culling not necessary here; circle is close to avatar and tiny, but cheap anyway
-          ctx.drawImage(spr, nx - d/2, ny - d/2, d, d);
-        }
-      }
-      ctx.restore();
-    }
-  }
-  function checkUserNodeHit(sx,sy){
-    if(!userNode.enabled) return;
-    const p = screenToWorld(sx,sy);
-    if(Math.hypot(p.x-userNode.x, p.y-userNode.y) <= userNode.R*1.05){
-      openProfile();
-    }
   }
 
-  // ---------- Döngü ----------
-  let start = performance.now();
-  function frame(now){
-    const t=(now-start)/1000;
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle="#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
-    drawBackgroundGlow();
-    drawLinks(t);
-    drawNodes(t);
-    drawCore();
-    drawUserNode();
-    requestAnimationFrame(frame);
+  requestAnimationFrame(frame);
+}
+
+/* =========================
+   🧠 Image cache
+   ========================= */
+const imageCache = new Map();
+function getImageFor(url, seed){
+  const key = url || ('identicon:'+seed);
+  if(imageCache.has(key)) return imageCache.get(key);
+  const img = new Image(); img.crossOrigin='anonymous';
+  img.src = url ? url : `https://api.dicebear.com/7.x/identicon/png?size=256&seed=${encodeURIComponent(seed||'user')}`;
+  imageCache.set(key, img);
+  return img;
+}
+
+/* =========================
+   🚀 Başlatma ve Etkileşimler
+   ========================= */
+btnStart.addEventListener('click', async ()=>{
+  const raw = (inpUser.value || '').trim().replace(/^@/, '');
+  currentUser.username = raw || 'elliottyu';
+  currentUser.avatarUrl = avatarUrlFor(currentUser.username);
+  currentUser.avatarImg = await loadAvatarImage(currentUser.username);
+
+  // UI
+  entryOverlay.style.display = 'none';
+  profileCard.style.display  = 'flex';
+  unameEl.textContent = '@' + currentUser.username;
+  if(currentUser.avatarImg){
+    avatarSmall.src = currentUser.avatarImg.src;
   }
 
-  // ---------- UI / Veri akışı ----------
-  const entryOverlay = document.getElementById('entryOverlay');
-  const inpUser = document.getElementById('inpUser');
-  const btnStart = document.getElementById('btnStart');
-  const profileCard = document.getElementById('profileCard');
-  const avatarSmall = document.getElementById('avatarSmall');
-  const uname = document.getElementById('uname');
-  const btnMessage = document.getElementById('btnMessage');
-  const btnExport = document.getElementById('btnExport');
+  // Supabase veri çek & realtime
+  await loadAllMessages();
+});
 
-  const msgOverlay = document.getElementById('msgOverlay');
-  const msgClose = document.getElementById('msgClose');
-  const inpMsg = document.getElementById('inpMsg');
-  const btnSend = document.getElementById('btnSend');
+msgClose.addEventListener('click', ()=>{ msgOverlay.style.display='none'; });
+btnSubmit.addEventListener('click', async ()=>{
+  const text = (inpMsg.value || 'gSenti').trim().slice(0,120);
+  msgOverlay.style.display='none';
+  await saveMessageAtNode(text);
+  pendingNode = null;
+});
 
-  const profOverlay = document.getElementById('profOverlay');
-  const profClose = document.getElementById('profClose');
-  const profAvatar = document.getElementById('profAvatar');
-  const profMsg = document.getElementById('profMsg');
-  const btnToggle = document.getElementById('btnToggle');
-
-  const expOverlay = document.getElementById('expOverlay');
-  const expClose = document.getElementById('expClose');
-  const expTitle = document.getElementById('expTitle');
-  const exportCanvas = document.getElementById('exportCanvas');
-  const expMsg = document.getElementById('expMsg');
-  const btnBack = document.getElementById('btnBack');
-
-  function getAvatarUrl(u){
-    // CORS açık servis: unavatar (X/Twitter)
-    return `https://unavatar.io/x/${encodeURIComponent(u)}`;
-  }
-  function loadAvatar(u){
-    return new Promise(resolve=>{
-      const img=new Image(); img.crossOrigin='anonymous';
-      img.src=getAvatarUrl(u);
-      img.onload=()=>resolve(img);
-      img.onerror=()=>{ // yedek (identicon)
-        const fall=new Image(); fall.crossOrigin='anonymous';
-        fall.src=`https://api.dicebear.com/7.x/identicon/png?size=256&seed=${encodeURIComponent(u)}`;
-        fall.onload=()=>resolve(fall);
-        fall.onerror=()=>resolve(null);
-      };
-    });
-  }
-
-  btnStart.addEventListener('click', async ()=>{
-    username = (inpUser.value || '').trim().replace(/^@/,'') || 'elliottyu';
-    // Avatarı yükle
-    avatarImg = await loadAvatar(username);
-    // UI güncelle
-    entryOverlay.style.display='none';
-    profileCard.style.display='flex';
-    btnMessage.style.display='inline-block';
-    btnExport.style.display='inline-block';
-    uname.textContent='@'+username;
-    if(avatarImg){
-      avatarSmall.src = avatarImg.src;
-      profAvatar.src = avatarImg.src;
-    }
-  });
-
-  // Leave Message aç/kapat
-  btnMessage.addEventListener('click', ()=>{ msgOverlay.style.display='flex'; inpMsg.focus(); });
-  msgClose.addEventListener('click', ()=>{ msgOverlay.style.display='none'; });
-
-  // Mesaj gönder: büyük daireyi oluştur
-  btnSend.addEventListener('click', ()=>{
-    const raw = (inpMsg.value || 'gSenti').trim();
-    messageText = raw.slice(0,25); // maksimum 25 karakter
-    userNode.enabled = true; userNode.active = false;
-    msgOverlay.style.display='none';
-  });
-
-  function openProfile(){
-    profOverlay.style.display='flex';
-    profMsg.textContent = messageText ? messageText : '(no message)';
-    if(avatarImg) profAvatar.src = avatarImg.src;
-    btnToggle.textContent = userNode.active ? 'Deactivate mini-grid' : 'Activate mini-grid';
-  }
-  profClose.addEventListener('click', ()=>{ profOverlay.style.display='none'; });
-  btnToggle.addEventListener('click', ()=>{
-    userNode.active = !userNode.active;
-    btnToggle.textContent = userNode.active ? 'Deactivate mini-grid' : 'Activate mini-grid';
-  });
-
-  // Export
-  btnExport.addEventListener('click', ()=>{
-    if(!username) username='user';
-    expTitle.textContent = '@'+username+"'s GRID Galaxy";
-    // küçük kompozisyon
-    drawPersonalGalaxy(exportCanvas, avatarImg);
-    // mesajı en alta ekle (varsa)
-    if(messageText && messageText.length){
-      expMsg.style.display='block';
-      expMsg.textContent = 'Message: ' + messageText;
-    }else{
-      expMsg.style.display='none';
-      expMsg.textContent = '';
-    }
-    expOverlay.style.display='flex';
-  });
-  expClose.addEventListener('click', ()=>{ expOverlay.style.display='none'; });
-  btnBack.addEventListener('click', ()=>{ expOverlay.style.display='none'; });
-
-  function drawPersonalGalaxy(cvs, avatar){
-    const c = cvs.getContext('2d'); const W=cvs.width, H=cvs.height;
-    c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,W,H);
-    c.fillStyle='#000'; c.fillRect(0,0,W,H);
-
-    // Merkez avatar
-    const cx=W/2, cy=H/2, R=Math.min(W,H)*0.16;
-    // Halo
-    let g=c.createRadialGradient(cx,cy,R*0.2,cx,cy,R*1.4);
-    g.addColorStop(0,"rgba(255,255,255,.35)");
-    g.addColorStop(1,"rgba(0,0,0,0)");
-    c.fillStyle=g; c.beginPath(); c.arc(cx,cy,R*1.5,0,Math.PI*2); c.fill();
-
-    if(avatar && avatar.complete){
-      c.save(); c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.clip();
-      c.drawImage(avatar,cx-R,cy-R,2*R,2*R); c.restore();
-    }else{
-      c.fillStyle='#888'; c.beginPath(); c.arc(cx,cy,R,0,Math.PI*2); c.fill();
-    }
-    // Çerçeve
-    c.strokeStyle='rgba(255,255,255,.35)'; c.lineWidth=3; c.beginPath(); c.arc(cx,cy,R+1.5,0,Math.PI*2); c.stroke();
-
-    // İki halka
-    const ring1=R+48, ring2=R+92;
-    const drawRing=(rad,count,phase)=>{
-      for(let i=0;i<count;i++){
-        const a = (i/count)*Math.PI*2 + phase;
-        const x=cx+Math.cos(a)*rad, y=cy+Math.sin(a)*rad;
-        const col = palette[i%palette.length];
-        // draw quick glow sprite instead of shadowBlur arc
-        const spr = ensureSprite(i % palette.length, 8);
-        const d = spr.width; c.drawImage(spr, x - d/2, y - d/2, d, d);
-      }
-    };
-    drawRing(ring1,24,0.1); drawRing(ring2,34,0.35);
-  }
-
-  // Başlat
-  resize(); camera.s = Math.max(ZOOM.min, Math.min(ZOOM.max, camera.s)); positionUserNode(); requestAnimationFrame(frame);
-})();
+/* =========================
+   🧭 Init
+   ========================= */
+subscribeRealtime();
+resize();
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>
